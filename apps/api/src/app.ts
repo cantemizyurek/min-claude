@@ -4,6 +4,7 @@ import type { Db } from "@min-claude/db";
 import { projectRoutes } from "./routes/projects";
 import { prdRoutes } from "./routes/prds";
 import { chatRoutes } from "./routes/chat";
+import { mockRoutes } from "./routes/mock";
 import type { WsHub } from "./ws/hub";
 import type { AskUserBridge } from "./agent/ask-user-bridge";
 
@@ -19,6 +20,11 @@ export function app(db: Db, hub?: WsHub, bridge?: AskUserBridge) {
 
   if (hub && bridge) {
     app.route("/api/prds", chatRoutes(db, hub, bridge));
+  }
+
+  // Mock control routes — only available when MOCK_AGENT=true
+  if (process.env.MOCK_AGENT === "true") {
+    app.route("/api/mock", mockRoutes());
   }
 
   return app;
