@@ -10,5 +10,9 @@ export type {
   WsOutgoingMessage,
   WsSubscribeMessage,
   WsUnsubscribeMessage,
+  WsUserAnswerMessage,
+  WsUserChatMessage,
   WsIncomingMessage,
+  AskUserQuestionOption,
+  AskUserQuestionData,
 } from "./types";

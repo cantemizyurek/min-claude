@@ -2,13 +2,15 @@ import { createDb } from "@min-claude/db";
 import { app } from "./app";
 import { WsHub } from "./ws/hub";
 import { createWsHandler, type WsData } from "./ws/handler";
+import { AskUserBridge } from "./agent/ask-user-bridge";
 
 const db = createDb(process.env.DB_PATH);
-const honoApp = app(db);
 const hub = new WsHub();
-const wsHandler = createWsHandler(db, hub);
+const bridge = new AskUserBridge(hub);
+const honoApp = app(db, hub, bridge);
+const wsHandler = createWsHandler(db, hub, bridge);
 
-export { hub };
+export { hub, bridge };
 
 export default {
   port: process.env.PORT ? parseInt(process.env.PORT) : 3001,
