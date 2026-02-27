@@ -12,6 +12,7 @@ export {
   createPrd,
   updatePrdPhase,
   updatePrdSessionId,
+  updatePrdGithubIssueNumber,
   getMessagesByPrdId,
   getMessagesByPrdIdAfter,
   createMessage,

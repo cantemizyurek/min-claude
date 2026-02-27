@@ -10,6 +10,7 @@ import {
 } from "@min-claude/db";
 import type { PrdPhase } from "@min-claude/shared";
 import type { WsHub } from "../ws/hub";
+import { submitPrdAsGithubIssue } from "../agent/github-issue";
 
 /** Allowed phase transitions: from → to[] */
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -123,16 +124,40 @@ export function prdRoutes(db: Db, hub?: WsHub) {
 
     const updated = updatePrdPhase(db, prdId, body.phase as PrdPhase);
 
+    // When transitioning from chat → issues, submit PRD as a GitHub issue
+    let githubIssue: { issueNumber: number; issueUrl: string } | null = null;
+    if (prd.phase === "chat" && body.phase === "issues") {
+      try {
+        githubIssue = await submitPrdAsGithubIssue(
+          db,
+          prdId,
+          prd.title,
+          project.path
+        );
+      } catch {
+        // GitHub issue creation is best-effort — don't block the phase transition
+      }
+    }
+
     // Notify subscribers of the phase change
     if (hub) {
       hub.broadcast(prdId, {
         type: "status_change",
         prdId,
-        data: { phase: updated.phase },
+        data: {
+          phase: updated.phase,
+          ...(githubIssue && { githubIssueUrl: githubIssue.issueUrl }),
+        },
       });
     }
 
-    return c.json(updated);
+    return c.json({
+      ...updated,
+      ...(githubIssue && {
+        githubIssueNumber: githubIssue.issueNumber,
+        githubIssueUrl: githubIssue.issueUrl,
+      }),
+    });
   });
 
   return routes;

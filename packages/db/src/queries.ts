@@ -68,6 +68,19 @@ export function updatePrdSessionId(db: Db, id: number, sessionId: string) {
     .get();
 }
 
+export function updatePrdGithubIssueNumber(
+  db: Db,
+  id: number,
+  issueNumber: number
+) {
+  return db
+    .update(prds)
+    .set({ githubIssueNumber: issueNumber, updatedAt: new Date() })
+    .where(eq(prds.id, id))
+    .returning()
+    .get();
+}
+
 // ── Message queries ──
 
 export function getMessagesByPrdId(db: Db, prdId: number) {
