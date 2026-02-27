@@ -15,7 +15,7 @@ export function app(db: Db, hub?: WsHub, bridge?: AskUserBridge) {
   app.get("/health", (c) => c.json({ status: "ok" }));
 
   app.route("/api/projects", projectRoutes(db));
-  app.route("/api/projects/:projectId/prds", prdRoutes(db));
+  app.route("/api/projects/:projectId/prds", prdRoutes(db, hub));
 
   if (hub && bridge) {
     app.route("/api/prds", chatRoutes(db, hub, bridge));

@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { Message as SharedMessage } from "@min-claude/shared";
-import { MessageSquare } from "lucide-react";
+import type { Message as SharedMessage, PrdPhase } from "@min-claude/shared";
+import { ArrowRight, MessageSquare } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -20,6 +20,7 @@ import {
   PromptInputFooter,
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
+import { Button } from "@/components/ui/button";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -31,6 +32,8 @@ interface ChatShellProps {
 export function ChatShell({ prdId, projectId }: ChatShellProps) {
   const [messages, setMessages] = useState<SharedMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [phase, setPhase] = useState<PrdPhase>("chat");
+  const [transitioning, setTransitioning] = useState(false);
 
   const fetchMessages = useCallback(async () => {
     setLoading(true);
@@ -49,12 +52,64 @@ export function ChatShell({ prdId, projectId }: ChatShellProps) {
     }
   }, [prdId, projectId]);
 
+  const fetchPrd = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/projects/${projectId}/prds`);
+      if (res.ok) {
+        const prds = await res.json();
+        const prd = prds.find((p: { id: number }) => p.id === prdId);
+        if (prd) {
+          setPhase(prd.phase);
+        }
+      }
+    } catch {
+      // API might not be running
+    }
+  }, [prdId, projectId]);
+
   useEffect(() => {
     fetchMessages();
-  }, [fetchMessages]);
+    fetchPrd();
+  }, [fetchMessages, fetchPrd]);
+
+  async function handlePhaseTransition() {
+    setTransitioning(true);
+    try {
+      const res = await fetch(
+        `${API_URL}/api/projects/${projectId}/prds/${prdId}/phase`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phase: "issues" }),
+        }
+      );
+      if (res.ok) {
+        const updated = await res.json();
+        setPhase(updated.phase);
+      }
+    } catch {
+      // handle silently
+    } finally {
+      setTransitioning(false);
+    }
+  }
 
   return (
     <div className="flex h-full flex-col">
+      {/* Header with phase transition */}
+      {phase === "chat" && messages.length > 0 && (
+        <div className="flex items-center justify-end border-b border-border px-4 py-2">
+          <Button
+            size="sm"
+            onClick={handlePhaseTransition}
+            disabled={transitioning}
+          >
+            {transitioning ? "Transitioning..." : "Finish Chat"}
+            {!transitioning && <ArrowRight className="ml-1 size-3.5" />}
+          </Button>
+        </div>
+      )}
+
       <Conversation className="flex-1">
         <ConversationContent className="mx-auto max-w-2xl">
           {loading ? (
@@ -76,21 +131,31 @@ export function ChatShell({ prdId, projectId }: ChatShellProps) {
         <ConversationScrollButton />
       </Conversation>
 
-      <div className="border-t border-border px-4 py-3">
-        <div className="mx-auto max-w-2xl">
-          <PromptInput
-            onSubmit={() => {
-              // No agent interaction yet — input is a shell placeholder
-            }}
-          >
-            <PromptInputTextarea placeholder="Type a message..." />
-            <PromptInputFooter>
-              <div />
-              <PromptInputSubmit />
-            </PromptInputFooter>
-          </PromptInput>
+      {phase === "chat" && (
+        <div className="border-t border-border px-4 py-3">
+          <div className="mx-auto max-w-2xl">
+            <PromptInput
+              onSubmit={() => {
+                // No agent interaction yet — input is a shell placeholder
+              }}
+            >
+              <PromptInputTextarea placeholder="Type a message..." />
+              <PromptInputFooter>
+                <div />
+                <PromptInputSubmit />
+              </PromptInputFooter>
+            </PromptInput>
+          </div>
         </div>
-      </div>
+      )}
+
+      {phase !== "chat" && (
+        <div className="border-t border-border px-4 py-3">
+          <p className="text-center text-sm text-muted-foreground">
+            Chat phase complete. PRD moved to {phase} phase.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

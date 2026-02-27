@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { createDb, type Db, createProject, createPrd, createMessage } from "@min-claude/db";
+import { createDb, type Db, createProject, createPrd, createMessage, updatePrdPhase } from "@min-claude/db";
 import { app } from "../app";
 
 function createTables(db: Db) {
@@ -204,6 +204,196 @@ describe("PRD routes", () => {
     it("returns 400 for invalid prd id", async () => {
       const res = await server.request(
         `/api/projects/${projectId}/prds/abc/messages`
+      );
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toBe("invalid prd id");
+    });
+  });
+
+  describe("PATCH /api/projects/:projectId/prds/:prdId/phase", () => {
+    let prdId: number;
+
+    beforeEach(() => {
+      const prd = createPrd(db, { projectId, title: "Phase PRD" });
+      prdId = prd.id;
+    });
+
+    it("transitions from chat to issues", async () => {
+      const res = await server.request(
+        `/api/projects/${projectId}/prds/${prdId}/phase`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phase: "issues" }),
+        }
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.phase).toBe("issues");
+      expect(data.id).toBe(prdId);
+    });
+
+    it("transitions from issues to execution", async () => {
+      updatePrdPhase(db, prdId, "issues");
+
+      const res = await server.request(
+        `/api/projects/${projectId}/prds/${prdId}/phase`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phase: "execution" }),
+        }
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.phase).toBe("execution");
+    });
+
+    it("transitions from execution to done", async () => {
+      updatePrdPhase(db, prdId, "execution");
+
+      const res = await server.request(
+        `/api/projects/${projectId}/prds/${prdId}/phase`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phase: "done" }),
+        }
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.phase).toBe("done");
+    });
+
+    it("rejects invalid transition from chat to execution", async () => {
+      const res = await server.request(
+        `/api/projects/${projectId}/prds/${prdId}/phase`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phase: "execution" }),
+        }
+      );
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toBe(
+        "invalid phase transition from 'chat' to 'execution'"
+      );
+    });
+
+    it("rejects invalid transition from chat to done", async () => {
+      const res = await server.request(
+        `/api/projects/${projectId}/prds/${prdId}/phase`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phase: "done" }),
+        }
+      );
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toContain("invalid phase transition");
+    });
+
+    it("rejects backward transition from issues to chat", async () => {
+      updatePrdPhase(db, prdId, "issues");
+
+      const res = await server.request(
+        `/api/projects/${projectId}/prds/${prdId}/phase`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phase: "chat" }),
+        }
+      );
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toContain("invalid phase transition");
+    });
+
+    it("returns 400 when phase is missing", async () => {
+      const res = await server.request(
+        `/api/projects/${projectId}/prds/${prdId}/phase`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        }
+      );
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toBe("phase is required");
+    });
+
+    it("returns 404 for non-existent project", async () => {
+      const res = await server.request(
+        `/api/projects/999/prds/${prdId}/phase`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phase: "issues" }),
+        }
+      );
+      expect(res.status).toBe(404);
+      const data = await res.json();
+      expect(data.error).toBe("project not found");
+    });
+
+    it("returns 404 for non-existent PRD", async () => {
+      const res = await server.request(
+        `/api/projects/${projectId}/prds/999/phase`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phase: "issues" }),
+        }
+      );
+      expect(res.status).toBe(404);
+      const data = await res.json();
+      expect(data.error).toBe("prd not found");
+    });
+
+    it("returns 404 when PRD belongs to different project", async () => {
+      const otherProject = createProject(db, {
+        name: "Other",
+        path: "/other",
+      });
+      const res = await server.request(
+        `/api/projects/${otherProject.id}/prds/${prdId}/phase`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phase: "issues" }),
+        }
+      );
+      expect(res.status).toBe(404);
+      const data = await res.json();
+      expect(data.error).toBe("prd not found");
+    });
+
+    it("returns 400 for invalid project id", async () => {
+      const res = await server.request(
+        `/api/projects/abc/prds/${prdId}/phase`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phase: "issues" }),
+        }
+      );
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toBe("invalid project id");
+    });
+
+    it("returns 400 for invalid prd id", async () => {
+      const res = await server.request(
+        `/api/projects/${projectId}/prds/abc/phase`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phase: "issues" }),
+        }
       );
       expect(res.status).toBe(400);
       const data = await res.json();
