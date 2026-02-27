@@ -11,6 +11,7 @@ export {
   getPrdById,
   createPrd,
   updatePrdPhase,
+  updatePrdSessionId,
   getMessagesByPrdId,
   getMessagesByPrdIdAfter,
   createMessage,

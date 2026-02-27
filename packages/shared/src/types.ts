@@ -66,4 +66,36 @@ export interface WsUnsubscribeMessage {
   prdId: number;
 }
 
-export type WsIncomingMessage = WsSubscribeMessage | WsUnsubscribeMessage;
+/** Client → Server: answer to an AskUserQuestion tool call */
+export interface WsUserAnswerMessage {
+  type: "user_answer";
+  prdId: number;
+  toolUseId: string;
+  answer: string;
+}
+
+/** Client → Server: new user message in the conversation */
+export interface WsUserChatMessage {
+  type: "user_message";
+  prdId: number;
+  content: string;
+}
+
+export type WsIncomingMessage =
+  | WsSubscribeMessage
+  | WsUnsubscribeMessage
+  | WsUserAnswerMessage
+  | WsUserChatMessage;
+
+// ── AskUserQuestion types ──
+
+export interface AskUserQuestionOption {
+  label: string;
+  description: string;
+}
+
+export interface AskUserQuestionData {
+  toolUseId: string;
+  question: string;
+  options: AskUserQuestionOption[];
+}
