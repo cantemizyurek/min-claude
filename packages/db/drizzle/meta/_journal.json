@@ -8,6 +8,13 @@
       "when": 1772169508484,
       "tag": "0000_hot_greymalkin",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1772170525858,
+      "tag": "0001_fresh_hitman",
+      "breakpoints": true
     }
   ]
 }
