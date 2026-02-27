@@ -290,6 +290,116 @@ describe("Agent Service", () => {
       expect((textMsgs[1] as any).data.accumulated).toBe("Hello world!");
     });
 
+    it("broadcasts thinking deltas via agent_thinking messages", async () => {
+      mockQueryFn.mockImplementation(() =>
+        mockAsyncGenerator([
+          {
+            type: "stream_event",
+            event: {
+              type: "content_block_delta",
+              delta: { type: "thinking_delta", thinking: "Let me " },
+            },
+          },
+          {
+            type: "stream_event",
+            event: {
+              type: "content_block_delta",
+              delta: { type: "thinking_delta", thinking: "think about this." },
+            },
+          },
+          {
+            type: "result",
+            subtype: "success",
+            result: "Done",
+            is_error: false,
+          },
+        ])
+      );
+
+      const broadcasted: unknown[] = [];
+      const mockWs = {
+        send: (d: string) => broadcasted.push(JSON.parse(d)),
+        readyState: 1,
+      };
+      hub.subscribe(mockWs, prdId);
+
+      await startChatSession(prdId, "/test/project", "Go", {
+        db,
+        hub,
+        bridge,
+      });
+
+      await new Promise((r) => setTimeout(r, 50));
+
+      const thinkingMsgs = broadcasted.filter(
+        (m: any) => m.type === "agent_thinking"
+      );
+      expect(thinkingMsgs.length).toBe(2);
+      expect((thinkingMsgs[0] as any).data.thinking).toBe("Let me ");
+      expect((thinkingMsgs[0] as any).data.accumulated).toBe("Let me ");
+      expect((thinkingMsgs[1] as any).data.thinking).toBe("think about this.");
+      expect((thinkingMsgs[1] as any).data.accumulated).toBe(
+        "Let me think about this."
+      );
+    });
+
+    it("resets accumulated thinking on new assistant message", async () => {
+      mockQueryFn.mockImplementation(() =>
+        mockAsyncGenerator([
+          {
+            type: "stream_event",
+            event: {
+              type: "content_block_delta",
+              delta: { type: "thinking_delta", thinking: "First thought" },
+            },
+          },
+          {
+            type: "assistant",
+            message: {
+              content: [{ type: "text", text: "Response 1" }],
+            },
+          },
+          {
+            type: "stream_event",
+            event: {
+              type: "content_block_delta",
+              delta: { type: "thinking_delta", thinking: "Second thought" },
+            },
+          },
+          {
+            type: "result",
+            subtype: "success",
+            result: "Done",
+            is_error: false,
+          },
+        ])
+      );
+
+      const broadcasted: unknown[] = [];
+      const mockWs = {
+        send: (d: string) => broadcasted.push(JSON.parse(d)),
+        readyState: 1,
+      };
+      hub.subscribe(mockWs, prdId);
+
+      await startChatSession(prdId, "/test/project", "Go", {
+        db,
+        hub,
+        bridge,
+      });
+
+      await new Promise((r) => setTimeout(r, 50));
+
+      const thinkingMsgs = broadcasted.filter(
+        (m: any) => m.type === "agent_thinking"
+      );
+      expect(thinkingMsgs.length).toBe(2);
+      // First thinking message accumulates normally
+      expect((thinkingMsgs[0] as any).data.accumulated).toBe("First thought");
+      // Second thinking message starts fresh (accumulated was reset)
+      expect((thinkingMsgs[1] as any).data.accumulated).toBe("Second thought");
+    });
+
     it("broadcasts result message on completion", async () => {
       mockQueryFn.mockImplementation(() =>
         mockAsyncGenerator([

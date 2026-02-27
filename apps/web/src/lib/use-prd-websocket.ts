@@ -20,6 +20,11 @@ export interface StreamingText {
   accumulated: string;
 }
 
+export interface ThinkingText {
+  thinking: string;
+  accumulated: string;
+}
+
 export interface UsePrdWebSocketReturn {
   /** Whether the WebSocket is connected */
   connected: boolean;
@@ -27,6 +32,8 @@ export interface UsePrdWebSocketReturn {
   realtimeMessages: SharedMessage[];
   /** Currently streaming agent text (cleared when assistant message completes) */
   streamingText: string | null;
+  /** Currently streaming agent thinking text (cleared when assistant message completes) */
+  thinkingText: string | null;
   /** Pending AskUserQuestion, if any */
   pendingQuestion: AskUserQuestionData | null;
   /** Current PRD phase (updated by status_change messages) */
@@ -52,6 +59,7 @@ export function usePrdWebSocket(
   const [pendingQuestion, setPendingQuestion] =
     useState<AskUserQuestionData | null>(null);
   const [phase, setPhase] = useState<PrdPhase | null>(null);
+  const [thinkingText, setThinkingText] = useState<string | null>(null);
   const [isAgentStreaming, setIsAgentStreaming] = useState(false);
 
   // Track lastMessageId in a ref so reconnection uses latest value
@@ -110,17 +118,25 @@ export function usePrdWebSocket(
           setIsAgentStreaming(true);
           break;
         }
+        case "agent_thinking": {
+          const data = msg.data as ThinkingText;
+          setThinkingText(data.accumulated);
+          setIsAgentStreaming(true);
+          break;
+        }
         case "agent_tool_use": {
           const data = msg.data as AskUserQuestionData;
           setPendingQuestion(data);
           // Clear streaming since the agent is now waiting for user input
           setStreamingText(null);
+          setThinkingText(null);
           setIsAgentStreaming(false);
           break;
         }
         case "agent_result": {
-          // Agent turn complete — clear streaming text
+          // Agent turn complete — clear streaming text and thinking
           setStreamingText(null);
+          setThinkingText(null);
           setIsAgentStreaming(false);
           break;
         }
@@ -132,9 +148,10 @@ export function usePrdWebSocket(
             if (data.id && prev.some((m) => m.id === data.id)) return prev;
             return [...prev, data];
           });
-          // If this is an assistant message, clear streaming
+          // If this is an assistant message, clear streaming and thinking
           if (data.role === "assistant") {
             setStreamingText(null);
+            setThinkingText(null);
             setIsAgentStreaming(false);
           }
           break;
@@ -199,6 +216,7 @@ export function usePrdWebSocket(
     connected,
     realtimeMessages,
     streamingText,
+    thinkingText,
     pendingQuestion,
     phase,
     isAgentStreaming,

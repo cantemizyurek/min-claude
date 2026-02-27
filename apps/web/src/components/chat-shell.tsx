@@ -6,7 +6,7 @@ import type {
   PrdPhase,
   AskUserQuestionData,
 } from "@min-claude/shared";
-import { ArrowRight, Loader2, MessageSquare } from "lucide-react";
+import { ArrowRight, MessageSquare } from "lucide-react";
 import {
   Conversation,
   ConversationContent,
@@ -24,6 +24,8 @@ import {
   PromptInputFooter,
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
+import { ChainOfThought } from "@/components/ai-elements/chain-of-thought";
+import { Suggestion, Suggestions } from "@/components/ai-elements/suggestions";
 import { Button } from "@/components/ui/button";
 import { usePrdWebSocket } from "@/lib/use-prd-websocket";
 
@@ -193,17 +195,53 @@ export function ChatShell({ prdId, projectId }: ChatShellProps) {
               title="No messages yet"
               description="Start a conversation to see messages here"
               icon={<MessageSquare className="size-8" />}
-            />
+            >
+              <div className="text-muted-foreground">
+                <MessageSquare className="mx-auto size-8" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-medium text-sm">Start writing your PRD</h3>
+                <p className="text-muted-foreground text-sm">
+                  Describe your project idea or pick a suggestion below
+                </p>
+              </div>
+              <Suggestions className="justify-center pt-2">
+                <Suggestion
+                  suggestion="I want to build a web application"
+                  onSuggestionClick={(s) => handleSubmit({ text: s })}
+                />
+                <Suggestion
+                  suggestion="Help me design a CLI tool"
+                  onSuggestionClick={(s) => handleSubmit({ text: s })}
+                />
+                <Suggestion
+                  suggestion="I need a mobile app"
+                  onSuggestionClick={(s) => handleSubmit({ text: s })}
+                />
+                <Suggestion
+                  suggestion="Plan a browser extension"
+                  onSuggestionClick={(s) => handleSubmit({ text: s })}
+                />
+              </Suggestions>
+            </ConversationEmptyState>
           ) : (
             <>
               {allMessages.map((msg, i) => (
                 <ChatMessage key={msg.id ?? `rt-${i}`} message={msg} />
               ))}
-              {/* Streaming agent text */}
-              {ws.streamingText && (
+              {/* Chain of thought / streaming agent text */}
+              {(ws.thinkingText || ws.streamingText) && (
                 <Message from="assistant">
                   <MessageContent>
-                    <MessageResponse>{ws.streamingText}</MessageResponse>
+                    {ws.thinkingText && (
+                      <ChainOfThought
+                        thinking={ws.thinkingText}
+                        isStreaming={ws.isAgentStreaming && !ws.streamingText}
+                      />
+                    )}
+                    {ws.streamingText && (
+                      <MessageResponse>{ws.streamingText}</MessageResponse>
+                    )}
                   </MessageContent>
                 </Message>
               )}
@@ -213,17 +251,6 @@ export function ChatShell({ prdId, projectId }: ChatShellProps) {
                   question={ws.pendingQuestion}
                   onAnswer={ws.sendAnswer}
                 />
-              )}
-              {/* Agent thinking indicator */}
-              {ws.isAgentStreaming && !ws.streamingText && (
-                <Message from="assistant">
-                  <MessageContent>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Loader2 className="size-4 animate-spin" />
-                      <span className="text-sm">Thinking...</span>
-                    </div>
-                  </MessageContent>
-                </Message>
               )}
             </>
           )}

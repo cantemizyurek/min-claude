@@ -256,6 +256,7 @@ async function processMessages(
   const { db, hub } = deps;
   let sessionId: string | undefined;
   let accumulatedText = "";
+  let accumulatedThinking = "";
 
   try {
     for await (const msg of q) {
@@ -270,7 +271,7 @@ async function processMessages(
 
       // Handle streaming text events
       if (msg.type === "stream_event") {
-        const event = (msg as { event: { type: string; delta?: { type: string; text?: string } } }).event;
+        const event = (msg as { event: { type: string; delta?: { type: string; text?: string; thinking?: string } } }).event;
         if (
           event.type === "content_block_delta" &&
           event.delta?.type === "text_delta" &&
@@ -281,6 +282,20 @@ async function processMessages(
             type: "agent_text",
             prdId,
             data: { text: event.delta.text, accumulated: accumulatedText },
+          };
+          hub.broadcast(prdId, outgoing);
+        }
+        // Handle thinking deltas (extended thinking / chain of thought)
+        if (
+          event.type === "content_block_delta" &&
+          event.delta?.type === "thinking_delta" &&
+          event.delta.thinking
+        ) {
+          accumulatedThinking += event.delta.thinking;
+          const outgoing: WsOutgoingMessage = {
+            type: "agent_thinking",
+            prdId,
+            data: { thinking: event.delta.thinking, accumulated: accumulatedThinking },
           };
           hub.broadcast(prdId, outgoing);
         }
@@ -300,8 +315,9 @@ async function processMessages(
           const fullText = textBlocks.map((b) => b.text).join("\n");
           createMessage(db, { prdId, role: "assistant", content: fullText });
         }
-        // Reset accumulated text for next assistant turn
+        // Reset accumulated text/thinking for next assistant turn
         accumulatedText = "";
+        accumulatedThinking = "";
         continue;
       }
 

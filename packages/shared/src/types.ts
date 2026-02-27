@@ -42,6 +42,7 @@ export interface Message {
 
 export type WsMessageType =
   | "agent_text"
+  | "agent_thinking"
   | "agent_tool_use"
   | "agent_result"
   | "user_message"
