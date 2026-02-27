@@ -137,8 +137,8 @@ export async function startChatSession(
       cwd: projectPath,
       systemPrompt: WRITE_PRD_SYSTEM_PROMPT,
       model: "claude-sonnet-4-6",
-      allowedTools: [],
-      disallowedTools: ["AskUserQuestion", "Bash", "Write", "Edit"],
+      allowedTools: ["AskUserQuestion"],
+      disallowedTools: ["Bash", "Write", "Edit"],
       mcpServers: { "min-claude-prd": mcpServer },
       permissionMode: "plan",
       abortController,
@@ -229,8 +229,8 @@ export async function sendMessage(
       systemPrompt: WRITE_PRD_SYSTEM_PROMPT,
       model: "claude-sonnet-4-6",
       resume: sessionId,
-      allowedTools: [],
-      disallowedTools: ["AskUserQuestion", "Bash", "Write", "Edit"],
+      allowedTools: ["AskUserQuestion"],
+      disallowedTools: ["Bash", "Write", "Edit"],
       mcpServers: { "min-claude-prd": mcpServer },
       permissionMode: "plan",
       abortController,
@@ -313,7 +313,12 @@ async function processMessages(
         );
         if (textBlocks.length > 0) {
           const fullText = textBlocks.map((b) => b.text).join("\n");
-          createMessage(db, { prdId, role: "assistant", content: fullText });
+          const savedMsg = createMessage(db, { prdId, role: "assistant", content: fullText });
+          hub.broadcast(prdId, {
+            type: "user_message",
+            prdId,
+            data: savedMsg,
+          });
         }
         // Reset accumulated text/thinking for next assistant turn
         accumulatedText = "";
