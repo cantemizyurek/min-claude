@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, and, gt } from "drizzle-orm";
 import type { Db } from "./client";
 import { projects, prds, messages } from "./schema";
 import type { PrdPhase, MessageRole } from "./schema";
@@ -66,6 +66,14 @@ export function getMessagesByPrdId(db: Db, prdId: number) {
     .select()
     .from(messages)
     .where(eq(messages.prdId, prdId))
+    .all();
+}
+
+export function getMessagesByPrdIdAfter(db: Db, prdId: number, afterId: number) {
+  return db
+    .select()
+    .from(messages)
+    .where(and(eq(messages.prdId, prdId), gt(messages.id, afterId)))
     .all();
 }
 

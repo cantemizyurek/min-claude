@@ -6,4 +6,9 @@ export type {
   CreatePrdInput,
   Message,
   MessageRole,
+  WsMessageType,
+  WsOutgoingMessage,
+  WsSubscribeMessage,
+  WsUnsubscribeMessage,
+  WsIncomingMessage,
 } from "./types";

@@ -12,5 +12,6 @@ export {
   createPrd,
   updatePrdPhase,
   getMessagesByPrdId,
+  getMessagesByPrdIdAfter,
   createMessage,
 } from "./queries";
