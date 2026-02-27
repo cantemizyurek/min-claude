@@ -1,14 +1,14 @@
+import { Sidebar } from "@/components/sidebar";
+
 export default function Home() {
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <h1 style={{ fontSize: "1.5rem", fontWeight: 500 }}>min-claude</h1>
+    <div className="flex h-screen">
+      <Sidebar />
+      <main className="flex flex-1 items-center justify-center">
+        <p className="text-sm text-muted-foreground">
+          Select a project to get started
+        </p>
+      </main>
     </div>
   );
 }
