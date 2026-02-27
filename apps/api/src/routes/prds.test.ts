@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { createDb, type Db, createProject } from "@min-claude/db";
+import { createDb, type Db, createProject, createPrd, createMessage } from "@min-claude/db";
 import { app } from "../app";
 
 function createTables(db: Db) {
@@ -134,6 +134,80 @@ describe("PRD routes", () => {
         body: JSON.stringify({ title: "Test" }),
       });
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe("GET /api/projects/:projectId/prds/:prdId/messages", () => {
+    let prdId: number;
+
+    beforeEach(() => {
+      const prd = createPrd(db, { projectId, title: "Chat PRD" });
+      prdId = prd.id;
+    });
+
+    it("returns empty array when no messages exist", async () => {
+      const res = await server.request(
+        `/api/projects/${projectId}/prds/${prdId}/messages`
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data).toEqual([]);
+    });
+
+    it("returns messages for a PRD", async () => {
+      createMessage(db, { prdId, role: "user", content: "Hello" });
+      createMessage(db, { prdId, role: "assistant", content: "Hi there" });
+
+      const res = await server.request(
+        `/api/projects/${projectId}/prds/${prdId}/messages`
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data).toHaveLength(2);
+      expect(data[0].role).toBe("user");
+      expect(data[0].content).toBe("Hello");
+      expect(data[1].role).toBe("assistant");
+      expect(data[1].content).toBe("Hi there");
+    });
+
+    it("returns 404 for non-existent project", async () => {
+      const res = await server.request(
+        `/api/projects/999/prds/${prdId}/messages`
+      );
+      expect(res.status).toBe(404);
+      const data = await res.json();
+      expect(data.error).toBe("project not found");
+    });
+
+    it("returns 404 for non-existent PRD", async () => {
+      const res = await server.request(
+        `/api/projects/${projectId}/prds/999/messages`
+      );
+      expect(res.status).toBe(404);
+      const data = await res.json();
+      expect(data.error).toBe("prd not found");
+    });
+
+    it("returns 404 when PRD belongs to different project", async () => {
+      const otherProject = createProject(db, {
+        name: "Other",
+        path: "/other",
+      });
+      const res = await server.request(
+        `/api/projects/${otherProject.id}/prds/${prdId}/messages`
+      );
+      expect(res.status).toBe(404);
+      const data = await res.json();
+      expect(data.error).toBe("prd not found");
+    });
+
+    it("returns 400 for invalid prd id", async () => {
+      const res = await server.request(
+        `/api/projects/${projectId}/prds/abc/messages`
+      );
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toBe("invalid prd id");
     });
   });
 });
