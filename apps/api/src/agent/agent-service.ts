@@ -5,7 +5,7 @@ import {
   type SDKMessage,
   type SDKResultMessage,
   type Query,
-} from "@anthropic-ai/claude-agent-sdk";
+} from "./agent-sdk";
 import { z } from "zod";
 import type { Db } from "@min-claude/db";
 import { createMessage, updatePrdSessionId } from "@min-claude/db";

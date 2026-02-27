@@ -10,10 +10,10 @@ import {
 import { WsHub } from "../ws/hub";
 import { AskUserBridge } from "./ask-user-bridge";
 
-// Mock the @anthropic-ai/claude-agent-sdk module
+// Mock the agent-sdk adapter module (which proxies to real or mock SDK)
 const mockQueryFn = mock(() => {});
 
-mock.module("@anthropic-ai/claude-agent-sdk", () => ({
+mock.module("./agent-sdk", () => ({
   query: mockQueryFn,
   tool: mock(
     (
