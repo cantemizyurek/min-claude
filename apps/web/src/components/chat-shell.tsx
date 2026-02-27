@@ -1,10 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { Message } from "@min-claude/shared";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
-import { Send } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import type { Message as SharedMessage } from "@min-claude/shared";
+import { MessageSquare } from "lucide-react";
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
+import {
+  Message,
+  MessageContent,
+  MessageResponse,
+} from "@/components/ai-elements/message";
+import {
+  PromptInput,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputSubmit,
+} from "@/components/ai-elements/prompt-input";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
@@ -14,10 +29,8 @@ interface ChatShellProps {
 }
 
 export function ChatShell({ prdId, projectId }: ChatShellProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<SharedMessage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [input, setInput] = useState("");
-  const bottomRef = useRef<HTMLDivElement>(null);
 
   const fetchMessages = useCallback(async () => {
     setLoading(true);
@@ -40,93 +53,63 @@ export function ChatShell({ prdId, projectId }: ChatShellProps) {
     fetchMessages();
   }, [fetchMessages]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    // No agent interaction yet — input is a shell placeholder
-    if (!input.trim()) return;
-    setInput("");
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e);
-    }
-  }
-
   return (
     <div className="flex h-full flex-col">
-      {/* Message list */}
-      <ScrollArea className="flex-1 px-4">
-        <div className="mx-auto max-w-2xl py-6 space-y-4">
+      <Conversation className="flex-1">
+        <ConversationContent className="mx-auto max-w-2xl">
           {loading ? (
             <p className="text-center text-sm text-muted-foreground py-12">
               Loading messages...
             </p>
           ) : messages.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-12">
-              No messages yet. Start a conversation.
-            </p>
+            <ConversationEmptyState
+              title="No messages yet"
+              description="Start a conversation to see messages here"
+              icon={<MessageSquare className="size-8" />}
+            />
           ) : (
             messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
+              <ChatMessage key={msg.id} message={msg} />
             ))
           )}
-          <div ref={bottomRef} />
-        </div>
-      </ScrollArea>
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
-      {/* Input area */}
       <div className="border-t border-border px-4 py-3">
-        <form
-          onSubmit={handleSubmit}
-          className="mx-auto flex max-w-2xl items-end gap-2"
-        >
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
-            rows={1}
-            className="flex-1 resize-none rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-          <Button type="submit" size="icon" disabled={!input.trim()}>
-            <Send className="size-4" />
-          </Button>
-        </form>
+        <div className="mx-auto max-w-2xl">
+          <PromptInput
+            onSubmit={() => {
+              // No agent interaction yet — input is a shell placeholder
+            }}
+          >
+            <PromptInputTextarea placeholder="Type a message..." />
+            <PromptInputFooter>
+              <div />
+              <PromptInputSubmit />
+            </PromptInputFooter>
+          </PromptInput>
+        </div>
       </div>
     </div>
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function ChatMessage({ message }: { message: SharedMessage }) {
   const content =
     typeof message.content === "string"
       ? message.content
       : JSON.stringify(message.content);
 
-  const isUser = message.role === "user";
-  const isSystem = message.role === "system";
-
   return (
-    <div
-      className={`flex ${isUser ? "justify-end" : "justify-start"}`}
-    >
-      <div
-        className={`max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
-          isUser
-            ? "bg-accent text-accent-foreground"
-            : isSystem
-              ? "bg-muted text-muted-foreground italic"
-              : "bg-secondary text-secondary-foreground"
-        }`}
-      >
-        {content}
-      </div>
-    </div>
+    <Message from={message.role}>
+      <MessageContent>
+        {message.role === "user" ? (
+          <p className="whitespace-pre-wrap">{content}</p>
+        ) : (
+          <MessageResponse>{content}</MessageResponse>
+        )}
+      </MessageContent>
+    </Message>
   );
 }
