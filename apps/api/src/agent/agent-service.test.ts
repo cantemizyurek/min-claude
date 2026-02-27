@@ -213,7 +213,11 @@ describe("Agent Service", () => {
       expect(callArgs.options.cwd).toBe("/test/project");
       expect(callArgs.options.systemPrompt).toBe(WRITE_PRD_SYSTEM_PROMPT);
       expect(callArgs.options.model).toBe("claude-sonnet-4-6");
-      expect(callArgs.options.disallowedTools).toContain("AskUserQuestion");
+      expect(callArgs.options.allowedTools).toContain("AskUserQuestion");
+      expect(callArgs.options.disallowedTools).not.toContain("AskUserQuestion");
+      expect(callArgs.options.disallowedTools).toContain("Bash");
+      expect(callArgs.options.disallowedTools).toContain("Write");
+      expect(callArgs.options.disallowedTools).toContain("Edit");
       expect(callArgs.options.permissionMode).toBe("plan");
     });
 
@@ -435,6 +439,50 @@ describe("Agent Service", () => {
       expect((resultMsgs[0] as any).data.isError).toBe(false);
     });
 
+    it("broadcasts assistant messages via WebSocket after saving to DB", async () => {
+      mockQueryFn.mockImplementation(() =>
+        mockAsyncGenerator([
+          {
+            type: "assistant",
+            message: {
+              content: [{ type: "text", text: "Here is your PRD draft." }],
+            },
+          },
+          {
+            type: "result",
+            subtype: "success",
+            result: "Done",
+            is_error: false,
+          },
+        ])
+      );
+
+      const broadcasted: unknown[] = [];
+      const mockWs = {
+        send: (d: string) => broadcasted.push(JSON.parse(d)),
+        readyState: 1,
+      };
+      hub.subscribe(mockWs, prdId);
+
+      await startChatSession(prdId, "/test/project", "Go", {
+        db,
+        hub,
+        bridge,
+      });
+
+      await new Promise((r) => setTimeout(r, 50));
+
+      const assistantBroadcasts = broadcasted.filter(
+        (m: any) => m.type === "user_message" && m.data.role === "assistant"
+      );
+      expect(assistantBroadcasts.length).toBe(1);
+      expect((assistantBroadcasts[0] as any).data.content).toBe(
+        "Here is your PRD draft."
+      );
+      // Should include a DB-generated id
+      expect((assistantBroadcasts[0] as any).data.id).toBeDefined();
+    });
+
     it("stores assistant messages in DB", async () => {
       mockQueryFn.mockImplementation(() =>
         mockAsyncGenerator([
@@ -526,6 +574,34 @@ describe("Agent Service", () => {
       // Check query called with resume
       const callArgs = (mockQueryFn.mock.calls as any[][])[0][0] as any;
       expect(callArgs.options.resume).toBe("prev-session-id");
+    });
+
+    it("passes correct tool configuration with AskUserQuestion allowed", async () => {
+      mockQueryFn.mockImplementation(() =>
+        mockAsyncGenerator([
+          {
+            type: "result",
+            subtype: "success",
+            result: "Done",
+            is_error: false,
+          },
+        ])
+      );
+
+      await sendMessage(
+        prdId,
+        "prev-session-id",
+        "Continue",
+        "/test/project",
+        { db, hub, bridge }
+      );
+
+      const callArgs = (mockQueryFn.mock.calls as any[][])[0][0] as any;
+      expect(callArgs.options.allowedTools).toContain("AskUserQuestion");
+      expect(callArgs.options.disallowedTools).not.toContain("AskUserQuestion");
+      expect(callArgs.options.disallowedTools).toContain("Bash");
+      expect(callArgs.options.disallowedTools).toContain("Write");
+      expect(callArgs.options.disallowedTools).toContain("Edit");
     });
   });
 
